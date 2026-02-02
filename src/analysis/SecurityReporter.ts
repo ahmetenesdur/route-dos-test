@@ -8,62 +8,82 @@ export class SecurityReporter {
 		topAmplifiers: AmplificationResult[],
 		concurrencyStats: StatsResult | null,
 	) {
-		console.log(chalk.bold("\nFINAL SECURITY REPORT"));
-		console.log("============================================");
+		console.log(chalk.bold("\n  Security Assessment Report"));
 
-		console.log(`Baseline Latency: ${baselineMs.toFixed(2)}ms`);
+		console.log(chalk.gray("\n  [ Metrics Overview ]"));
+		console.log(
+			`  Baseline Latency     : ${chalk.white(baselineMs.toFixed(2) + "ms")}`,
+		);
 
 		const worstCase = topAmplifiers[0];
 		const maxRatio = worstCase ? worstCase.ratio : 1.0;
 
 		console.log(
-			`Worst-Case Latency: ${worstCase ? worstCase.duration.toFixed(2) : 0}ms`,
+			`  Worst-Case Latency   : ${chalk.white((worstCase ? worstCase.duration : 0).toFixed(2) + "ms")}`,
 		);
-		console.log(`Amplification Ratio: ${maxRatio.toFixed(1)}x`);
+		console.log(
+			`  Amplification Ratio  : ${
+				maxRatio >= 3
+					? chalk.red(maxRatio.toFixed(1) + "x")
+					: maxRatio >= 2
+						? chalk.yellow(maxRatio.toFixed(1) + "x")
+						: chalk.green(maxRatio.toFixed(1) + "x")
+			}`,
+		);
 
-		console.log("\nConcurrency Impact:");
 		if (concurrencyStats) {
+			console.log(chalk.gray("\n  [ Concurrency Impact ]"));
 			console.log(
-				`  Mean Latency: ${concurrencyStats.mean.toFixed(2)}ms`,
+				`  Mean Latency         : ${chalk.white(concurrencyStats.mean.toFixed(2) + "ms")}`,
 			);
-			console.log(`  P95 Latency: ${concurrencyStats.p95.toFixed(2)}ms`);
+			console.log(
+				`  P95 Latency          : ${chalk.white(concurrencyStats.p95.toFixed(2) + "ms")}`,
+			);
 		}
 
-		console.log("\nSecurity Conclusion:");
+		console.log(chalk.gray("\n  [ Conclusion ]"));
 		if (maxRatio >= 3.0) {
 			console.log(
-				chalk.red.bold("FAIL: High Amplification Risk Detected"),
+				"  " +
+					chalk.red.bold("FAIL") +
+					": High Amplification Risk Detected",
 			);
 			console.log(
-				chalk.red(
-					`   - Parameter set causes causing >3x slowdown found.`,
-				),
+				chalk.red(`  • Parameter set causing >3x slowdown found.`),
 			);
-			if (worstCase)
+			if (worstCase) {
+				console.log(chalk.gray("\n  Triggering Payload:"));
 				console.log(
-					`   - Trigger: ${JSON.stringify(worstCase.params)}`,
+					chalk.cyan(
+						`  ${JSON.stringify(worstCase.params, null, 2).replace(/\n/g, "\n  ")}`,
+					),
 				);
+			}
 		} else if (maxRatio >= 2.0) {
-			console.log(chalk.yellow.bold("WARNING: Moderate Amplification"));
 			console.log(
-				chalk.yellow(`   - Some parameters cause 2x-3x slowdown.`),
+				"  " +
+					chalk.yellow.bold("WARNING") +
+					": Moderate Amplification",
+			);
+			console.log(
+				chalk.yellow(`  • Some parameters cause 2x-3x slowdown.`),
 			);
 		} else {
 			console.log(
-				chalk.green.bold(
-					"PASS: No significant amplification detected.",
-				),
+				"  " + chalk.green.bold("PASS") + ": System is stable.",
+			);
+			console.log(
+				chalk.green("  No significant amplification detected."),
 			);
 		}
 
 		if (concurrencyStats && concurrencyStats.mean > baselineMs * 5) {
 			console.log(
-				chalk.red.bold(
-					"FAIL: Concurrency causes severe degradation (>5x baseline)",
-				),
+				"\n  " +
+					chalk.red.bold("FAIL") +
+					": Severe Concurrency Degradation (>5x baseline)",
 			);
 		}
-
-		console.log("============================================");
+		console.log(""); // Final newline
 	}
 }

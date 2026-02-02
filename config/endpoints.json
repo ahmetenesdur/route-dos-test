@@ -1,0 +1,4 @@
+{
+	"base": "https://api.fibrous.finance/base/route",
+	"method": "GET"
+}

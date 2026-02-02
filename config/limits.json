@@ -1,0 +1,7 @@
+{
+	"maxConcurrency": 10,
+	"maxRequestsPerSecond": 50,
+	"globalTimeoutMs": 10000,
+	"errorThresholdPercent": 20,
+	"maxConsecutiveErrors": 5
+}

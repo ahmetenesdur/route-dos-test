@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+build
+out
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+ts-debug.log*
+pnpm-debug.log*
+
+# Environment constraints
+.env
+.env.local
+.env.*.local
+
+# IDE conventions
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage
+.nyc_output

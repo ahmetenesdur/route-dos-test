@@ -3,6 +3,7 @@ import endpoints from "../../config/endpoints.json";
 import params from "../../config/test-params.json";
 import chalk from "chalk";
 import { TestParams } from "../types";
+import cliProgress from "cli-progress";
 
 export class ParamFuzzScenario {
 	private runner = new RequestRunner();
@@ -40,11 +41,31 @@ export class ParamFuzzScenario {
 		console.log(`  - Generated ${paramSets.length} test cases.`);
 		console.log("  - executing...");
 
+		const bar = new cliProgress.SingleBar(
+			{
+				format:
+					"Progress |" +
+					chalk.cyan("{bar}") +
+					"| {percentage}% || {value}/{total} Requests || Duration: {duration_formatted}",
+				barCompleteChar: "\u2588",
+				barIncompleteChar: "\u2591",
+				hideCursor: true,
+			},
+			cliProgress.Presets.shades_classic,
+		);
+
+		bar.start(paramSets.length, 0);
+
 		const results = await this.runner.runBatch(
 			endpoints.base,
 			endpoints.method,
 			paramSets,
+			(completed, _total) => {
+				bar.update(completed);
+			},
 		);
+
+		bar.stop();
 
 		return results;
 	}

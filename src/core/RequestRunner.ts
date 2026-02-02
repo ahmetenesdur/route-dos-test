@@ -20,11 +20,18 @@ export class RequestRunner {
 		url: string,
 		method: string,
 		paramSets: TestParams[],
+		onProgress?: (completed: number, total: number) => void,
 	): Promise<RequestMetric[]> {
+		let completed = 0;
+		const total = paramSets.length;
+
 		const tasks = paramSets.map((params) => {
 			return this.limit(async () => {
 				if (!this.guard.isActive()) return null;
-				return this.executeRequest(url, method, params);
+				const result = await this.executeRequest(url, method, params);
+				completed++;
+				if (onProgress) onProgress(completed, total);
+				return result;
 			});
 		});
 

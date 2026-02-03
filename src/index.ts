@@ -5,6 +5,7 @@ import limits from "../config/limits.json";
 import { BaselineScenario } from "./scenarios/baseline";
 import { ParamFuzzScenario } from "./scenarios/param-fuzz";
 import { ConcurrencyScenario } from "./scenarios/concurrency";
+import { ExploitVerifyScenario } from "./scenarios/exploit-verify";
 import { MetricsCollector } from "./analysis/MetricsCollector";
 import { SecurityReporter } from "./analysis/SecurityReporter";
 import { RequestMetric } from "./core/RequestRunner";
@@ -17,7 +18,7 @@ program
 	.version("1.0.0")
 	.option(
 		"--scenario <type>",
-		"Test scenario to run: baseline, fuzz, concurrency, all",
+		"Test scenario to run: baseline, fuzz, concurrency, exploit, all",
 		"all",
 	)
 	.option("--target <url>", "Override target URL", endpoints.base);
@@ -40,6 +41,7 @@ async function main() {
 	const baselineRunner = new BaselineScenario();
 	const fuzzer = new ParamFuzzScenario();
 	const concurrencyRunner = new ConcurrencyScenario();
+	const exploitRunner = new ExploitVerifyScenario();
 	const collector = new MetricsCollector();
 	const reporter = new SecurityReporter();
 
@@ -60,7 +62,13 @@ async function main() {
 			concurrencyResults = await concurrencyRunner.run(baselineMs);
 		}
 
-		// 4. Analysis
+		// 4. Run Exploit Verification (only when explicitly requested)
+		if (options.scenario === "exploit") {
+			await exploitRunner.run(baselineMs);
+			return; // Exploit scenario has its own reporting
+		}
+
+		// 5. Analysis
 		const amplifiers = collector.analyzeAmplification(
 			fuzzResults,
 			baselineMs,
@@ -71,6 +79,16 @@ async function main() {
 				: null;
 
 		reporter.generateReport(baselineMs, amplifiers, concurrencyStats);
+
+		// 6. Auto-run Exploit if high amplification detected
+		if (amplifiers.length > 0 && amplifiers[0].ratio >= 3.0) {
+			console.log(
+				chalk.yellow(
+					"\n  High amplification detected. Running exploit verification...",
+				),
+			);
+			await exploitRunner.run(baselineMs, amplifiers[0].params);
+		}
 	} catch (err: unknown) {
 		const errorMessage =
 			err instanceof Error ? err.message : "Unknown error";

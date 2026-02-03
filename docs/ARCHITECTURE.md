@@ -1,57 +1,90 @@
-# Architecture & Agent Roles
+# Architecture
 
-This project follows a **Role-Based Agent Model** to simulate a complete QA/Security team workflow. Instead of a monolithic script, the codebase is organized into modules that mimic human roles.
-
-## Roles & Responsibilities
-
-### 1. Role: Test Architect
-
-- **Responsibility:** Defines _what_ to test and _how_ to measure success.
-- **Code Location:** `config/`
-    - `endpoints.json`: Target definition.
-    - `test-params.json`: The "Test Matrix".
-    - `limits.json`: Acceptance criteria and safety boundaries.
-
-### 2. Role: Load & Param Engineer
-
-- **Responsibility:** Executes the requests safely and efficiently.
-- **Code Location:** `src/core/` and `src/scenarios/`
-    - **Engineer (Execution):** `RequestRunner.ts` handles the actual HTTP calls, concurrency management (`p-limit`), and timeout enforcement.
-    - **Safety Officer:** `SafetyGuard.ts` sits alongside the engineer, monitoring every result. If errors spike, it pulls the emergency brake (Process Exit).
-
-### 3. Role: Metrics & Analysis Agent
-
-- **Responsibility:** Makes sense of the raw data.
-- **Code Location:** `src/analysis/MetricsCollector.ts`
-    - Collects raw timing data.
-    - Calculates statistical significance (Mean, P95).
-    - **Crucial Task:** Computes the "Amplification Ratio" by comparing `Fuzz` results against `Baseline`.
-
-### 4. Role: Security Reviewer
-
-- **Responsibility:** Delivers the final verdict.
-- **Code Location:** `src/analysis/SecurityReporter.ts`
-    - Reads the metrics from the Analyst.
-    - Applies business attributes (PASS/FAIL thresholds).
-    - Generates the human-readable report.
+```
+route-dos-test/
+├── config/                 # Configuration
+│   ├── endpoints.json      # Target API
+│   ├── limits.json         # Safety limits
+│   ├── test-params.json    # Fuzzing parameters
+│   └── exploit-payload.json # Malicious payload
+│
+├── src/
+│   ├── index.ts            # Entry point
+│   │
+│   ├── scenarios/          # Test Scenarios
+│   │   ├── baseline.ts     # Measures normal response time
+│   │   ├── param-fuzz.ts   # Scans parameter combinations
+│   │   ├── concurrency.ts  # Parallel load test
+│   │   └── exploit-verify.ts # Vulnerability verification
+│   │
+│   ├── core/               # Infrastructure
+│   │   ├── RequestRunner.ts # HTTP requests + concurrency
+│   │   └── SafetyGuard.ts   # Emergency stop mechanism
+│   │
+│   └── analysis/           # Analysis
+│       ├── MetricsCollector.ts # Statistics calculation
+│       └── SecurityReporter.ts # Result report
+```
 
 ---
 
 ## Data Flow
 
-1.  **Initialization:** `src/index.ts` loads config (Architect).
-2.  **Baseline:** `BaselineScenario` establishes ground truth (Engineer).
-3.  **Fuzzing:** `ParamFuzzScenario` generates permutations (Engineer) and feeds data to Analyst.
-4.  **Analysis:** `MetricsCollector` finds the outliers (Analyst).
-5.  **Reporting:** `SecurityReporter` prints the final assessment (Reviewer).
+```
+1. Baseline    → Measure normal time (130ms)
+       ↓
+2. Fuzz        → Test thousands of combinations
+       ↓
+3. Analyze     → Find slowest combination (10000ms = 77x)
+       ↓
+4. Report      → PASS / WARNING / FAIL
+       ↓
+5. Auto-Chain  → If ≥3x amplification, auto-run exploit with discovered payload
+       ↓
+6. Exploit     → Verify vulnerability in controlled manner
+```
 
-## The "SafetyGuard" Mechanism
+---
 
-The `SafetyGuard` is a singleton observer pattern.
+## Components
 
-1.  Every request executed by `RequestRunner` reports its status (Success/Fail/Timeout) to `SafetyGuard`.
-2.  `SafetyGuard` maintains a moving window of error rates.
-3.  **Trigger Condition:** If `Consecutive Errors > 5` OR `Error Rate > 20%`, it trips.
-4.  **Action:** `process.exit(1)` immediately stops all pending promises, effectively cutting traffic to the target.
+### RequestRunner
 
-This ensures that even if you configure a heavy test, the harness self-terminates if the target starts dying.
+- Manages all HTTP requests
+- Concurrency control via `p-limit`
+- Timeout enforcement
+
+### SafetyGuard
+
+- Singleton pattern
+- Monitors every request result
+- **Emergency Stop:** `process.exit(1)` on 5+ consecutive errors or >20% error rate
+
+### MetricsCollector
+
+- Calculates Amplification Ratio: `worst_case / baseline`
+- Statistics: Mean, P95, Max
+
+### SecurityReporter
+
+- Interprets results
+- Makes PASS / WARNING / FAIL decision
+
+---
+
+## Exploit Verify Scenario
+
+Tests DoS success while staying under rate limit:
+
+```
+Rate Limit: 200 req/min
+Safe Rate:  160 req/min (×0.8 margin)
+Concurrency: 3 parallel requests
+
+Each request consumes ~10s of server CPU
+3 requests × 10s = 30s workload / second
+→ Server queue grows continuously
+→ Timeout / Crash
+```
+
+**Health Check:** Sends lightweight canary request every 5 seconds. If this request slows down or fails → DoS successful.

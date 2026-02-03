@@ -5,8 +5,12 @@
 	"main": "dist/index.js",
 	"scripts": {
 		"start": "ts-node src/index.ts",
+		"test:all": "ts-node src/index.ts --scenario all",
+		"test:baseline": "ts-node src/index.ts --scenario baseline",
+		"test:fuzz": "ts-node src/index.ts --scenario fuzz",
+		"test:concurrency": "ts-node src/index.ts --scenario concurrency",
+		"test:exploit": "ts-node src/index.ts --scenario exploit",
 		"build": "tsc",
-		"test": "echo \"Error: no test specified\" && exit 1",
 		"lint": "eslint src/**/*.ts",
 		"serve:mock": "ts-node scripts/mock-server.ts"
 	},
